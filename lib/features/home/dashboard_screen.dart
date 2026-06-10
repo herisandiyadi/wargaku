@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -69,38 +71,8 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Info RT banner
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF1E3A8A), Color(0xFF312E81)]),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.3), borderRadius: BorderRadius.circular(12)),
-                            child: const Text('INFO RT', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Color(0xFF93C5FD), letterSpacing: 1)),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text('Kerja Bakti Fogging RT 03', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
-                          const SizedBox(height: 4),
-                          const Text('Minggu depan jam 07:00 WIB di lapangan.', style: TextStyle(fontSize: 9, color: Color(0xFFBFDBFE))),
-                        ]),
-                      ),
-                      Container(
-                        width: 36, height: 36,
-                        decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
-                        alignment: Alignment.center,
-                        child: const Text('📢', style: TextStyle(fontSize: 16)),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
+                // Dynamic Banner from Firestore (FLT-06)
+                const _BannerSection(),
                 // Pengajuan Terbaru
                 const Text('PENGAJUAN TERBARU', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.slateGray, letterSpacing: 1.5)),
                 const SizedBox(height: 8),
@@ -130,7 +102,7 @@ class DashboardScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 80), // space for bottom nav
+                const SizedBox(height: 80),
               ],
             ),
           ),
@@ -161,5 +133,152 @@ class DashboardScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// FLT-06: Dynamic Banner Section with StreamBuilder
+class _BannerSection extends StatefulWidget {
+  const _BannerSection();
+
+  @override
+  State<_BannerSection> createState() => _BannerSectionState();
+}
+
+class _BannerSectionState extends State<_BannerSection> {
+  final PageController _pageController = PageController();
+  Timer? _autoScrollTimer;
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoScroll(int count) {
+    _autoScrollTimer?.cancel();
+    if (count <= 1) return;
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!_pageController.hasClients) return;
+      final next = ((_pageController.page?.round() ?? 0) + 1) % count;
+      _pageController.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('banners')
+          .where('is_active', isEqualTo: true)
+          .orderBy('created_at', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+
+        final now = DateTime.now();
+        final banners = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final expiresAt = data['expires_at'] as Timestamp?;
+          return expiresAt == null || expiresAt.toDate().isAfter(now);
+        }).toList();
+
+        if (banners.isEmpty) return const SizedBox.shrink();
+
+        _startAutoScroll(banners.length);
+
+        return Column(
+          children: [
+            SizedBox(
+              height: 100,
+              child: banners.length == 1
+                  ? _BannerCard(data: banners.first.data() as Map<String, dynamic>)
+                  : PageView.builder(
+                      controller: _pageController,
+                      itemCount: banners.length,
+                      itemBuilder: (_, i) => _BannerCard(data: banners[i].data() as Map<String, dynamic>),
+                    ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _BannerCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _BannerCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final type = data['type'] as String? ?? 'INFO';
+    final gradients = _gradientForType(type);
+    final badge = _badgeForType(type);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: gradients),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                child: Text(badge, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white70, letterSpacing: 1)),
+              ),
+              const SizedBox(height: 8),
+              Text(data['title'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
+              const SizedBox(height: 4),
+              Text(data['body'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: Colors.white70)),
+            ]),
+          ),
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
+            alignment: Alignment.center,
+            child: Text(_emojiForType(type), style: const TextStyle(fontSize: 16)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static List<Color> _gradientForType(String type) {
+    switch (type) {
+      case 'URGENT':
+        return [const Color(0xFF991B1B), const Color(0xFF7F1D1D)];
+      case 'EVENT':
+        return [const Color(0xFF065F46), const Color(0xFF064E3B)];
+      default: // INFO
+        return [const Color(0xFF1E3A8A), const Color(0xFF312E81)];
+    }
+  }
+
+  static String _badgeForType(String type) {
+    switch (type) {
+      case 'URGENT':
+        return 'URGENT';
+      case 'EVENT':
+        return 'EVENT';
+      default:
+        return 'INFO RT';
+    }
+  }
+
+  static String _emojiForType(String type) {
+    switch (type) {
+      case 'URGENT':
+        return '🚨';
+      case 'EVENT':
+        return '🎉';
+      default:
+        return '📢';
+    }
   }
 }

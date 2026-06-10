@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_colors.dart';
@@ -42,9 +43,23 @@ class _AdminScreenState extends State<AdminScreen> {
         title: const Text('Admin - Daftar Warga', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.campaign, size: 20),
+            tooltip: 'Kelola Banner',
+            onPressed: () => Navigator.pushNamed(context, '/admin/banners'),
+          ),
+          IconButton(
             icon: const Icon(Icons.person_add, size: 20),
             tooltip: 'Tambah Warga Baru',
             onPressed: () => Navigator.pushNamed(context, '/admin/add'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, size: 20),
+            tooltip: 'Logout',
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (!context.mounted) return;
+              Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+            },
           ),
         ],
       ),

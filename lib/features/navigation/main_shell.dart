@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../home/dashboard_screen.dart';
 import '../log/log_screen.dart';
+import '../profile/profile_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -18,7 +19,7 @@ class _MainShellState extends State<MainShell> {
     Scaffold(body: Center(child: Text('Surat'))),
     SizedBox(), // placeholder for FAB
     LogScreen(),
-    Scaffold(body: Center(child: Text('Profil'))),
+    ProfileScreen(),
   ];
 
   @override

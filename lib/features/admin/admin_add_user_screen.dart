@@ -1,6 +1,8 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -70,9 +72,16 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen> {
     setState(() => _submitting = true);
 
     try {
-      // Call Cloud Function to create user account (server-side)
-      final callable = FirebaseFunctions.instance.httpsCallable('createUserAccount');
-      final result = await callable.call({
+      // Get auth token
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+      await user.getIdToken(true);
+      debugPrint('[AdminAddUser] Auth UID: ${user.uid}');
+
+      // Call Cloud Function
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('createUserAccount');
+      final result = await callable.call<Map<String, dynamic>>({
         'phone': _phoneCtrl.text.trim(),
         'password': _passwordCtrl.text,
         'name': _nameCtrl.text.trim(),
@@ -97,6 +106,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
+      log("Error creating user: $e");
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal: $e')));
     } finally {
       if (mounted) setState(() => _submitting = false);

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../core/services/auth_service.dart';
 import '../../core/theme/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -41,7 +42,8 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/home');
+      final isAdmin = await AuthService.isAdmin();
+      Navigator.pushReplacementNamed(context, isAdmin ? '/admin' : '/home');
     } on FirebaseAuthException catch (e) {
       setState(() {
         _loading = false;
