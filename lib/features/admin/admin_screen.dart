@@ -43,6 +43,11 @@ class _AdminScreenState extends State<AdminScreen> {
         title: const Text('Admin - Daftar Warga', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.fact_check_outlined, size: 20),
+            tooltip: 'Persetujuan Surat',
+            onPressed: () => Navigator.pushNamed(context, '/admin/surat'),
+          ),
+          IconButton(
             icon: const Icon(Icons.campaign, size: 20),
             tooltip: 'Kelola Banner',
             onPressed: () => Navigator.pushNamed(context, '/admin/banners'),

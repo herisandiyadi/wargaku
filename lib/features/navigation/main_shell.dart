@@ -3,6 +3,7 @@ import '../../core/theme/app_colors.dart';
 import '../home/dashboard_screen.dart';
 import '../log/log_screen.dart';
 import '../profile/profile_screen.dart';
+import '../surat/surat_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -16,7 +17,7 @@ class _MainShellState extends State<MainShell> {
 
   final _pages = const [
     DashboardScreen(),
-    Scaffold(body: Center(child: Text('Surat'))),
+    SuratScreen(),
     SizedBox(), // placeholder for FAB
     LogScreen(),
     ProfileScreen(),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -13,35 +14,53 @@ class DashboardScreen extends StatelessWidget {
       body: Column(
         children: [
           // Blue gradient header
-          Container(
-            padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 16, left: 20, right: 20, bottom: 24),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [AppColors.brandBlue, Color(0xFF1E3A8A)]),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white24, width: 2), color: Colors.white10),
-                  alignment: Alignment.center,
-                  child: const Text('KK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(FirebaseAuth.instance.currentUser?.uid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              final data = snapshot.data?.data() as Map<String, dynamic>?;
+              final name = data?['name'] ?? 'Warga';
+              final familyRole = data?['family_role'] ?? '';
+              final roleLabel = familyRole == 'KEPALA_KELUARGA'
+                  ? 'Kepala Keluarga'
+                  : 'Anggota Keluarga';
+              final initials = name.length >= 2
+                  ? name.substring(0, 2).toUpperCase()
+                  : name.toUpperCase();
+
+              return Container(
+                padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 16, left: 20, right: 20, bottom: 24),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [AppColors.brandBlue, Color(0xFF1E3A8A)]),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
                 ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Selamat Datang!', style: TextStyle(fontSize: 9, color: Colors.white70, fontWeight: FontWeight.w600, letterSpacing: 1)),
-                    SizedBox(height: 2),
-                    Text('Kepala Keluarga - RT 03 RW 01', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w900)),
-                  ]),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white24, width: 2), color: Colors.white10),
+                      alignment: Alignment.center,
+                      child: Text(initials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Selamat Datang!', style: TextStyle(fontSize: 9, color: Colors.white70, fontWeight: FontWeight.w600, letterSpacing: 1)),
+                        const SizedBox(height: 2),
+                        Text('$roleLabel - RT 03 RW 01', style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w900)),
+                      ]),
+                    ),
+                    Container(
+                      width: 32, height: 32,
+                      decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white10),
+                      child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 18),
+                    ),
+                  ],
                 ),
-                Container(
-                  width: 32, height: 32,
-                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white10),
-                  child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 18),
-                ),
-              ],
-            ),
+              );
+            },
           ),
           // Content
           Expanded(
@@ -61,9 +80,9 @@ class DashboardScreen extends StatelessWidget {
                         crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
                         mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 2.2,
                         children: [
-                          _menuItem('📄', 'Administrasi', 'Pengajuan Surat', AppColors.brandBlue, const Color(0xFFEFF6FF)),
-                          _menuItem('🚨', 'Panic Button', 'Tombol Darurat', AppColors.emergencyRed, const Color(0xFFFEF2F2), isPanic: true),
-                          _menuItem('🏠', 'Data Keluarga', 'Kelola KK', AppColors.emerald, const Color(0xFFECFDF5)),
+                          _menuItem('📄', 'Administrasi', 'Pengajuan Surat', AppColors.brandBlue, const Color(0xFFEFF6FF), onTap: () => Navigator.pushNamed(context, '/arsip-surat')),
+                          _menuItem('🚨', 'Panic Button', 'Tombol Darurat', AppColors.emergencyRed, const Color(0xFFFEF2F2), isPanic: true, onTap: () => Navigator.pushNamed(context, '/sos')),
+                          _menuItem('🏠', 'Data Keluarga', 'Kelola KK', AppColors.emerald, const Color(0xFFECFDF5), onTap: () => Navigator.pushNamed(context, '/keluarga')),
                           _menuItem('🕒', 'Riwayat', 'Log Kejadian', const Color(0xFFF59E0B), const Color(0xFFFFFBEB)),
                         ],
                       ),
@@ -111,26 +130,29 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  static Widget _menuItem(String emoji, String title, String subtitle, Color iconBg, Color tileBg, {bool isPanic = false}) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: tileBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: tileBg)),
-      child: Row(
-        children: [
-          Container(
-            width: 32, height: 32,
-            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(8)),
-            alignment: Alignment.center,
-            child: Text(emoji, style: const TextStyle(fontSize: 14)),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: isPanic ? AppColors.emergencyRed : AppColors.dark)),
-              Text(subtitle, style: const TextStyle(fontSize: 8, color: AppColors.slateGray)),
-            ]),
-          ),
-        ],
+  static Widget _menuItem(String emoji, String title, String subtitle, Color iconBg, Color tileBg, {bool isPanic = false, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: tileBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: tileBg)),
+        child: Row(
+          children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(8)),
+              alignment: Alignment.center,
+              child: Text(emoji, style: const TextStyle(fontSize: 14)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: isPanic ? AppColors.emergencyRed : AppColors.dark)),
+                Text(subtitle, style: const TextStyle(fontSize: 8, color: AppColors.slateGray)),
+              ]),
+            ),
+          ],
+        ),
       ),
     );
   }

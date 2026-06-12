@@ -2,6 +2,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/notification_service.dart';
@@ -13,29 +14,53 @@ import 'features/auth/login_screen.dart';
 import 'features/emergency/alarm_received_screen.dart';
 import 'features/emergency/siren_broadcast_screen.dart';
 import 'features/emergency/sos_countdown_screen.dart';
+import 'features/keluarga/data_keluarga_screen.dart';
 import 'features/navigation/main_shell.dart';
+import 'features/surat/admin_surat_screen.dart';
+import 'features/surat/arsip_surat_screen.dart';
+import 'features/warga/data_warga_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Activate App Check (debug for development, playIntegrity for release)
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.debug,
-  );
+  try {
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    debugPrint('Firebase init failed: $e');
+  }
 
-  // Register background handler FIRST (FLT-02 requirement)
+  // App Check — skip jika gagal agar app tetap jalan
+  try {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: kReleaseMode
+          ? AndroidProvider.playIntegrity
+          : AndroidProvider.debug,
+    );
+  } catch (e) {
+    debugPrint('AppCheck failed: $e');
+  }
+
+  // Register background handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // Initialize Awesome Notifications
-  await NotificationService.init();
+  // Initialize Awesome Notifications — skip jika gagal
+  try {
+    await NotificationService.init();
+  } catch (e) {
+    debugPrint('Notification init failed: $e');
+  }
 
   // Check if user already logged in
   String initialRoute = '/login';
-  if (FirebaseAuth.instance.currentUser != null) {
-    final isAdmin = await AuthService.isAdmin();
-    initialRoute = isAdmin ? '/admin' : '/home';
+  try {
+    if (FirebaseAuth.instance.currentUser != null) {
+      final isAdmin = await AuthService.isAdmin();
+      initialRoute = isAdmin ? '/admin' : '/home';
+    }
+  } catch (_) {
+    initialRoute = '/login';
   }
 
   runApp(WargakuApp(initialRoute: initialRoute));
@@ -72,6 +97,10 @@ class _WargakuAppState extends State<WargakuApp> {
         '/admin': (_) => const AdminScreen(),
         '/admin/add': (_) => const AdminAddUserScreen(),
         '/admin/banners': (_) => const AdminBannerScreen(),
+        '/admin/surat': (_) => const AdminSuratScreen(),
+        '/keluarga': (_) => const DataKeluargaScreen(),
+        '/warga': (_) => const DataWargaScreen(),
+        '/arsip-surat': (_) => const ArsipSuratScreen(),
       },
     );
   }

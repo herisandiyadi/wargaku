@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_colors.dart';
 
+enum LoginMethod { phone, email }
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -11,8 +13,9 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _nikController = TextEditingController();
+  final _inputController = TextEditingController();
   final _passwordController = TextEditingController();
+  LoginMethod _method = LoginMethod.phone;
   bool _rememberMe = true;
   bool _obscurePassword = true;
   String? _errorMessage;
@@ -20,14 +23,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _nikController.dispose();
+    _inputController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
-    if (_nikController.text.isEmpty || _passwordController.text.isEmpty) {
-      setState(() => _errorMessage = 'Email/NIK dan Password wajib diisi.');
+    if (_inputController.text.isEmpty || _passwordController.text.isEmpty) {
+      setState(() => _errorMessage = '${_method == LoginMethod.phone ? "No. HP" : "Email"} dan Password wajib diisi.');
       return;
     }
 
@@ -37,8 +40,13 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      final input = _inputController.text.trim();
+      final email = _method == LoginMethod.email
+          ? input
+          : '${input.replaceAll(RegExp(r'[^0-9]'), '')}@warga.app';
+
       await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _nikController.text.trim(),
+        email: email,
         password: _passwordController.text,
       );
       if (!mounted) return;
@@ -48,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _loading = false;
         _errorMessage = switch (e.code) {
-          'user-not-found' || 'invalid-credential' => 'Email atau Password salah.',
+          'user-not-found' || 'invalid-credential' => '${_method == LoginMethod.phone ? "No. HP" : "Email"} atau Password salah.',
           'wrong-password' => 'Password salah.',
           'too-many-requests' => 'Terlalu banyak percobaan. Coba lagi nanti.',
           _ => 'Login gagal: ${e.message}',
@@ -88,8 +96,29 @@ class _LoginScreenState extends State<LoginScreen> {
               Text('ADMINISTRASI & KEAMANAN RT',
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 2, color: AppColors.slateGray)),
               const Spacer(),
-              // Fields
-              _buildField('Email / Username', '👤', _nikController, false),
+              // Login method toggle
+              SegmentedButton<LoginMethod>(
+                segments: const [
+                  ButtonSegment(value: LoginMethod.phone, icon: Icon(Icons.phone, size: 16), label: Text('No. HP', style: TextStyle(fontSize: 11))),
+                  ButtonSegment(value: LoginMethod.email, icon: Icon(Icons.email, size: 16), label: Text('Email', style: TextStyle(fontSize: 11))),
+                ],
+                selected: {_method},
+                onSelectionChanged: (v) {
+                  setState(() {
+                    _method = v.first;
+                    _inputController.clear();
+                    _errorMessage = null;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              // Input field
+              _buildField(
+                _method == LoginMethod.phone ? 'No. Handphone' : 'Email',
+                _method == LoginMethod.phone ? '📱' : '✉️',
+                _inputController,
+                false,
+              ),
               const SizedBox(height: 16),
               _buildField('Password', '🔒', _passwordController, true),
               const SizedBox(height: 12),
@@ -168,6 +197,9 @@ class _LoginScreenState extends State<LoginScreen> {
         TextField(
           controller: ctrl,
           obscureText: isPassword && _obscurePassword,
+          keyboardType: isPassword
+              ? TextInputType.text
+              : (_method == LoginMethod.phone ? TextInputType.phone : TextInputType.emailAddress),
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             prefixIcon: Padding(padding: const EdgeInsets.all(12), child: Text(icon, style: const TextStyle(fontSize: 16))),
